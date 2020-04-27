@@ -10,8 +10,9 @@ from garage import _Default, make_optimizer
 from garage import log_multitask_performance
 from garage import TrajectoryBatch
 from garage.misc import tensor_utils
-from garage.sampler import OnPolicyVectorizedSampler
 from garage.torch import update_module_params
+from garage.sampler import MultiprocessingSampler
+from garage.torch.algos import _Default, make_optimizer
 from garage.torch.optimizers import ConjugateGradientOptimizer
 from garage.torch.optimizers import DifferentiableSGD
 
@@ -50,8 +51,7 @@ class MAML:
                  num_grad_updates=1,
                  meta_evaluator=None,
                  evaluate_every_n_epochs=1):
-        self.sampler_cls = OnPolicyVectorizedSampler
-
+        self.sampler_cls = MultiprocessingSampler
         self.max_path_length = inner_algo.max_path_length
 
         self._meta_evaluator = meta_evaluator

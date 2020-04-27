@@ -9,8 +9,6 @@ import psutil
 
 from garage.experiment.deterministic import get_seed, set_seed
 from garage.experiment.snapshotter import Snapshotter
-from garage.sampler import parallel_sampler
-from garage.sampler.sampler_deprecated import BaseSampler
 # This is avoiding a circular import
 from garage.sampler.default_worker import DefaultWorker  # noqa: I100
 from garage.sampler.worker_factory import WorkerFactory
@@ -86,7 +84,6 @@ class LocalRunner:
         snapshot_config (garage.experiment.SnapshotConfig): The snapshot
             configuration used by LocalRunner to create the snapshotter.
             If None, it will create one with default settings.
-        max_cpus (int): The maximum number of parallel sampler workers.
 
     Note:
         For the use of any TensorFlow environments, policies and algorithms,
@@ -116,16 +113,10 @@ class LocalRunner:
 
     """
 
-    def __init__(self, snapshot_config, max_cpus=1):
+    def __init__(self, snapshot_config):
         self._snapshotter = Snapshotter(snapshot_config.snapshot_dir,
                                         snapshot_config.snapshot_mode,
                                         snapshot_config.snapshot_gap)
-
-        parallel_sampler.initialize(max_cpus)
-
-        seed = get_seed()
-        if seed is not None:
-            parallel_sampler.set_seed(seed)
 
         self._has_setup = False
         self._plot = False
@@ -202,17 +193,15 @@ class LocalRunner:
             sampler_args = {}
         if worker_args is None:
             worker_args = {}
-        if issubclass(sampler_cls, BaseSampler):
-            return sampler_cls(self._algo, self._env, **sampler_args)
-        else:
-            return sampler_cls.from_worker_factory(WorkerFactory(
-                seed=seed,
-                max_path_length=max_path_length,
-                n_workers=n_workers,
-                worker_class=worker_class,
-                worker_args=worker_args),
-                                                   agents=self._algo.policy,
-                                                   envs=self._env)
+
+        return sampler_cls.from_worker_factory(
+            WorkerFactory(seed=seed,
+                          max_path_length=max_path_length,
+                          n_workers=n_workers,
+                          worker_class=worker_class,
+                          worker_args=worker_args),
+           agents=self._algo.policy,
+           envs=self._env)
 
     def setup(self,
               algo,
@@ -275,8 +264,6 @@ class LocalRunner:
 
     def _start_worker(self):
         """Start Plotter and Sampler workers."""
-        if isinstance(self._sampler, BaseSampler):
-            self._sampler.start_worker()
         if self._plot:
             # pylint: disable=import-outside-toplevel
             from garage.plotter import Plotter
@@ -327,17 +314,13 @@ class LocalRunner:
                              'Either provide `batch_size` to runner.train, '
                              ' or pass `batch_size` to runner.obtain_samples.')
         paths = None
-        if isinstance(self._sampler, BaseSampler):
-            paths = self._sampler.obtain_samples(
-                itr, (batch_size or self._train_args.batch_size))
-        else:
-            if agent_update is None:
-                agent_update = self._algo.policy.get_param_values()
-            paths = self._sampler.obtain_samples(
-                itr, (batch_size or self._train_args.batch_size),
-                agent_update=agent_update,
-                env_update=env_update)
-            paths = paths.to_trajectory_list()
+        if agent_update is None:
+            agent_update = self._algo.policy.get_param_values()
+        paths = self._sampler.obtain_samples(
+            itr, (batch_size or self._train_args.batch_size),
+            agent_update=agent_update,
+            env_update=env_update)
+        paths = paths.to_trajectory_list()
 
         self._stats.total_env_steps += sum([len(p['rewards']) for p in paths])
 

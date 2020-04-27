@@ -2,7 +2,6 @@ from garage.envs import GarageEnv
 from garage.experiment import LocalTFRunner
 from garage.np.algos import CMAES
 from garage.np.baselines import LinearFeatureBaseline
-from garage.sampler import OnPolicyVectorizedSampler
 from garage.tf.policies import CategoricalMLPPolicy
 from tests.fixtures import snapshot_config, TfGraphTestCase
 
@@ -27,7 +26,7 @@ class TestCMAES(TfGraphTestCase):
                          max_path_length=100,
                          n_samples=n_samples)
 
-            runner.setup(algo, env, sampler_cls=OnPolicyVectorizedSampler)
+            runner.setup(algo, env)
             runner.train(n_epochs=1, batch_size=1000)
             # No assertion on return because CMAES is not stable.
 
